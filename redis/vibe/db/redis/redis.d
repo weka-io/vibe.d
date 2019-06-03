@@ -1166,25 +1166,38 @@ final class RedisSubscriberImpl {
 		}
 
 		// Waits for data and advises the handler
-		m_listenerHelper = runTask( {
-			while(true) {
-				if (!m_stop && m_lockedConnection.conn && m_lockedConnection.conn.waitForData(100.msecs)) {
-					// We check every 5 seconds if this task should stay active
-					if (m_stop)	break;
-					else if (m_lockedConnection.conn && !m_lockedConnection.conn.dataAvailableForRead) continue;
-					// Data has arrived, this task is in charge of notifying the main handler loop
-					logTrace("Notify data arrival");
+		m_listenerHelper = runTask(() nothrow {
+			while(!m_stop && m_lockedConnection.conn) {
+				bool recvd;
+				try recvd = m_lockedConnection.conn.waitForData(100.msecs);
+				catch (Exception e) {
+					logWarn("Failed to wait for data in PubSub handler: %s", e.msg);
+					break;
+				}
+				if (!recvd) {
+					logTrace("No data arrival in 100 ms...");
+					continue;
+				}
 
+				// We check every 5 seconds if this task should stay active
+				if (m_stop || !m_lockedConnection.conn) break;
+				// Data has arrived, this task is in charge of notifying the main handler loop
+				logTrace("Notify data arrival");
+
+				try {
 					() @trusted { receiveTimeout(0.seconds, (Variant v) {}); } (); // clear message queue
 					() @trusted { m_listener.send(Action.DATA); } ();
 					if (!() @trusted { return receiveTimeout(5.seconds, (Action act) { assert(act == Action.DATA); }); } ())
 						assert(false);
-
-				} else if (m_stop || !m_lockedConnection.conn) break;
-				logTrace("No data arrival in 100 ms...");
+				} catch (Exception e) {
+					logWarn("Failed to notify PubSub listener about incoming data: %s", e.msg);
+				}
 			}
 			logTrace("Listener Helper exit.");
-			() @trusted { m_listener.send(Action.STOP); } ();
+			try () @trusted { m_listener.send(Action.STOP); } ();
+			catch (Exception e) {
+				logWarn("Failed to notiy PubSub listener about stopped state: %s", e.msg);
+			}
 		} );
 
 		m_listening = true;
@@ -1246,7 +1259,7 @@ final class RedisSubscriberImpl {
 	/// The timeout is passed over to the listener, which closes after the period of inactivity.
 	/// Use 0.seconds timeout to specify a very long time (365 days)
 	/// Errors will be sent to Callback Delegate on channel "Error".
-	Task listen(void delegate(string, string) @safe callback, Duration timeout = 0.seconds)
+	Task listen(void delegate(string, string) @safe nothrow callback, Duration timeout = 0.seconds)
 	{
 		logTrace("Listen");
 		void impl() @safe {
@@ -1254,12 +1267,13 @@ final class RedisSubscriberImpl {
 			m_waiter = Task.getThis();
 			scope(exit) m_waiter = Task();
 			Throwable ex;
-			m_listener = runTask({
+			m_listener = runTask(() nothrow {
 				try blisten(callback, timeout);
 				catch(Exception e) {
 					ex = e;
 					if (m_waiter != Task() && !m_listening) {
-						() @trusted { m_waiter.send(Action.STARTED); } ();
+						try () @trusted { m_waiter.send(Action.STARTED); } ();
+						catch (Exception e) assert(false, e.msg);
 						return;
 					}
 					callback("Error", e.msg);
@@ -1280,6 +1294,19 @@ final class RedisSubscriberImpl {
 		}
 		inTask(&impl);
 		return m_listener;
+	}
+	/// ditto
+	deprecated("Use a nothrow message callback")
+	Task listen(void delegate(string, string) @safe callback, Duration timeout = 0.seconds)
+	{
+		return listen((ch, msg) nothrow {
+			try callback(ch, msg);
+			catch (Exception e) {
+				logWarn("PubSub message callback has thrown: %s", e.msg);
+				try logDebug("Full error: %s", e.toString());
+				catch (Exception e2) {}
+			}
+		});
 	}
 	/// ditto
 	deprecated("Use an @safe message callback")
@@ -1526,8 +1553,8 @@ private final class RedisConnection {
 		m_port = port;
 	}
 
-	@property TCPConnection conn() { return m_conn; }
-	@property void conn(TCPConnection conn) { m_conn = conn; }
+	@property TCPConnection conn() nothrow { return m_conn; }
+	@property void conn(TCPConnection conn) nothrow { m_conn = conn; }
 
 	void setAuth(string password)
 	{

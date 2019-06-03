@@ -773,9 +773,10 @@ final class WebSocket {
 	}
 
 	private void startReader()
-	{
-		m_readMutex.performLocked!({}); //Wait until initialization
-		scope (exit) m_readCondition.notifyAll();
+	nothrow {
+		try m_readMutex.performLocked!({}); //Wait until initialization
+		catch (Exception e) assert(false, "Failed to wait for WebSocket initialization: " ~ e.msg);
+
 		try {
 			while (!m_conn.empty) {
 				assert(!m_nextMessage);
@@ -832,6 +833,9 @@ final class WebSocket {
 		// If no close code was passed, e.g. this was an unclean termination
 		//  of our websocket connection, set the close code to 1006.
 		if (this.m_closeCode == 0) this.m_closeCode = WebSocketCloseReason.abnormalClosure;
+
+		try m_readCondition.notifyAll();
+		catch (Exception e) assert(false, "Failed to notify WebSocket read end: " ~ e.msg);
 	}
 
 	private void sendPing()

@@ -111,52 +111,55 @@ class StdFileStream : ConnectionStream {
 
 	private void readThreadFunc()
 	{
-		bool loop_flag = false;
-		runTask({
+		import vibe.core.log : logWarn;
+
+		runTask(() nothrow {
 			ubyte[1] buf;
-			scope(exit) {
+			try {
+				while (!m_file.eof) {
+					auto data = m_file.rawRead(buf);
+					if (!data.length) break;
+					m_readPipe.write(data, IOMode.all);
+					vibe.core.core.yield();
+				}
+			} catch (Exception e) {
+				logWarn("StdFileStream read thread failed for FD %s: %s", m_file.fileno, e.msg);
+			}
+
+			try {
 				if (m_file.isOpen) m_file.close();
 				m_readPipe.finalize();
-				if (loop_flag) exitEventLoop();
-				else loop_flag = true;
+			} catch (Exception e) {
+				logWarn("StdFileStream failed to close FD %s: %s", m_file.fileno, e.msg);
 			}
-			while (!m_file.eof) {
-				auto data = m_file.rawRead(buf);
-				if (!data.length) break;
-				m_readPipe.write(data, IOMode.all);
-				vibe.core.core.yield();
-			}
-		});
-		if (!loop_flag) {
-			loop_flag = true;
-			runEventLoop();
-		}
+		}).join();
 	}
 
 	private void writeThreadFunc()
 	{
+		import vibe.core.log : logWarn;
 		import std.algorithm : min;
 
-		bool loop_flag = false;
-		runTask({
+		runTask(() nothrow {
 			ubyte[1024] buf;
-			scope(exit) {
+			try {
+				while (m_file.isOpen && !m_writePipe.empty) {
+					auto len = min(buf.length, m_writePipe.leastSize);
+					if (!len) break;
+					m_writePipe.read(buf[0 .. len], IOMode.all);
+					m_file.rawWrite(buf[0 .. len]);
+					vibe.core.core.yield();
+				}
+			} catch (Exception e) {
+				logWarn("StdFileStream read thread failed for FD %s: %s", m_file.fileno, e.msg);
+			}
+
+			try {
 				if (m_file.isOpen) m_file.close();
-				if (loop_flag) exitEventLoop();
-				else loop_flag = true;
+			} catch (Exception e) {
+				logWarn("StdFileStream failed to close FD %s: %s", m_file.fileno, e.msg);
 			}
-			while (m_file.isOpen && !m_writePipe.empty) {
-				auto len = min(buf.length, m_writePipe.leastSize);
-				if (!len) break;
-				m_writePipe.read(buf[0 .. len], IOMode.all);
-				m_file.rawWrite(buf[0 .. len]);
-				vibe.core.core.yield();
-			}
-		});
-		if (!loop_flag) {
-			loop_flag = true;
-			runEventLoop();
-		}
+		}).join();
 	}
 }
 

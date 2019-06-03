@@ -110,7 +110,18 @@ HTTPServerRequestDelegateS proxyRequest(HTTPProxySettings settings)
 			assert (scon);
 
 			import vibe.core.core : runTask;
-			runTask({ scon.pipe(ccon); });
+			runTask({
+				try scon.pipe(ccon);
+				catch (Exception e) {
+					try {
+						if (!scon.empty) scon.close();
+						if (ccon.connected) ccon.close();
+					} catch (Exception e2) {
+						logWarn("Failed to close HTTP proxy connection after I/O error: %s", e2.msg);
+						logWarn("Original I/O error: %s", e.msg);
+					}
+				}
+			});
 			ccon.pipe(scon);
 			return;
 		}
@@ -158,7 +169,18 @@ HTTPServerRequestDelegateS proxyRequest(HTTPProxySettings settings)
 				auto ccon = cres.switchProtocol("");
 
 				import vibe.core.core : runTask;
-				runTask({ ccon.pipe(scon); });
+				runTask({
+					try ccon.pipe(scon);
+					catch (Exception e) {
+						try {
+							if (!ccon.empty) ccon.close();
+							if (scon.connected) scon.close();
+						} catch (Exception e2) {
+							logWarn("Failed to close HTTP upgrade connection after I/O error: %s", e2.msg);
+							logWarn("Original I/O error: %s", e.msg);
+						}
+					}
+				});
 
 				scon.pipe(ccon);
 				return;
