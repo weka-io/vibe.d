@@ -2000,20 +2000,25 @@ private HTTPListener listenHTTPPlain(HTTPServerSettings settings, HTTPServerRequ
 		try {
 			TCPListenOptions options = TCPListenOptions.defaults;
 			if(reusePort) options |= TCPListenOptions.reusePort; else options &= ~TCPListenOptions.reusePort;
-			auto ret = listenTCP(listen_info.bindPort, (TCPConnection conn) nothrow @safe {
-					try handleHTTPConnection(conn, listen_info);
-					catch (Exception e) {
-						logError("HTTP connection handler has thrown: %s", e.msg);
-						debug logDebug("Full error: %s", () @trusted { return e.toString().sanitize(); } ());
-						try conn.close();
-						catch (Exception e) logError("Failed to close connection: %s", e.msg);
-					}
-				}, listen_info.bindAddress, options);
+			auto connection_cb = (TCPConnection conn) nothrow @safe {
+				try handleHTTPConnection(conn, listen_info);
+				catch (Exception e) {
+					logError("HTTP connection handler has thrown: %s", e.msg);
+					debug logDebug("Full error: %s", () @trusted { return e.toString().sanitize(); } ());
+					try conn.close();
+					catch (Exception e) logError("Failed to close connection: %s", e.msg);
+				}
+			};
 
-			// support port 0 meaning any available port
-			if (listen_info.bindPort == 0)
-				listen_info.m_bindPort = ret.bindAddress.port;
-
+			TCPListener ret;
+			if (listen_info.bindAddress.length > 6 && listen_info.bindAddress[0 .. 7] == "unix://") {
+				ret = listenTCP(listen_info.bindAddress[7 .. $], connection_cb, options);
+			} else {
+				ret = listenTCP(listen_info.bindPort, connection_cb, listen_info.bindAddress, options);
+				// support port 0 meaning any available port
+				if (listen_info.bindPort == 0)
+					listen_info.m_bindPort = ret.bindAddress.port;
+			}
 			auto proto = is_tls ? "https" : "http";
 			auto urladdr = listen_info.bindAddress;
 			if (urladdr.canFind(':')) urladdr = "["~urladdr~"]";
