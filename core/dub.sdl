@@ -26,6 +26,7 @@ configuration "win32_mscoff" {
 	versions "VibeWin32Driver"
 }
 
+/*
 configuration "libevent" {
 	platforms "windows-x86-dmd" "posix"
 	dependency "libevent" version="~>2.0.1"
@@ -43,6 +44,7 @@ configuration "libasync" {
 	targetType "library"
 	versions "VibeUseNativeDriverType" "VibeLibasyncDriver"
 }
+*/
 
 configuration "win32" {
 	platforms "windows"
