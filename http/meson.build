@@ -2,7 +2,7 @@
 
 vibe_http_src_dir = include_directories('.')
 
-vibe_http_src = [
+vibe_http_src = files(
     'vibe/http/auth/basic_auth.d',
     'vibe/http/auth/digest_auth.d',
     'vibe/http/client.d',
@@ -10,14 +10,15 @@ vibe_http_src = [
     'vibe/http/dist.d',
     'vibe/http/fileserver.d',
     'vibe/http/form.d',
+    'vibe/http/internal/basic_auth_client.d',
     'vibe/http/log.d',
     'vibe/http/proxy.d',
     'vibe/http/router.d',
     'vibe/http/server.d',
     'vibe/http/session.d',
     'vibe/http/status.d',
-    'vibe/http/websockets.d'
-]
+    'vibe/http/websockets.d',
+)
 
 #
 # Install Includes
@@ -35,13 +36,14 @@ vibe_http_lib = library('vibe-http',
                        vibe_inet_dep,
                        vibe_tls_dep,
                        vibe_crypto_dep,
+                       vibe_data_dep,
                        diet_dep],
         install: true,
+        pic: true,
         version: project_version,
         soversion: project_soversion
 )
-pkgc.generate(name: 'vibe-http',
-              libraries: [vibe_http_lib],
+pkgc.generate(vibe_http_lib,
               subdirs: 'd/vibe',
               version: project_version,
               requires: ['diet',
@@ -57,6 +59,7 @@ vibe_http_dep = declare_dependency(
     dependencies: [vibe_inet_dep,
                    vibe_tls_dep,
                    vibe_crypto_dep,
+                   vibe_data_dep,
                    diet_dep],
 )
 
@@ -66,10 +69,13 @@ vibe_http_dep = declare_dependency(
 vibe_test_http_exe = executable('vibe-test_http',
     [vibe_http_src],
     dependencies: [vibe_inet_dep,
+                   vibe_utils_dep,
+                   vibe_data_dep,
+                   vibe_stream_dep,
                    vibe_tls_dep,
                    vibe_crypto_dep,
                    diet_dep],
-    d_args: meson.get_compiler('d').unittest_args(),
-    link_args: '-main'
+    d_unittest: true,
+    link_args: '--main'
 )
 test('vibe-test_http', vibe_test_http_exe)

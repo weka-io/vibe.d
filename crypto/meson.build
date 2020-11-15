@@ -21,15 +21,15 @@ vibe_crypto_lib = library('vibe-crypto',
         [vibe_crypto_src],
         dependencies: [vibe_core_dep],
         install: true,
+        pic: true,
         version: project_version,
         soversion: project_soversion
 )
-pkgc.generate(name: 'vibe-crypto',
-              libraries: [vibe_crypto_lib],
-              subdirs: 'd/vibe',
-              version: project_version,
-    		  requires: ['vibe-core'],
-              description: 'Cryptographic helper routines for Vibe.'
+pkgc.generate(vibe_crypto_lib,
+        subdirs: 'd/vibe',
+        version: project_version,
+        requires: ['vibe-core'],
+        description: 'Cryptographic helper routines for Vibe.'
 )
 
 vibe_crypto_dep = declare_dependency(
@@ -44,7 +44,7 @@ vibe_crypto_dep = declare_dependency(
 vibe_test_crypto_exe = executable('vibe-test_crypto',
     [vibe_crypto_src],
     dependencies: [vibe_core_dep],
-    d_args: meson.get_compiler('d').unittest_args(),
-    link_args: '-main'
+    d_unittest: true,
+    link_args: '--main'
 )
 test('vibe-test_crypto', vibe_test_crypto_exe)

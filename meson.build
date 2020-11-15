@@ -1,8 +1,9 @@
 project('Vibe.d', 'd',
-    meson_version: '>=0.40',
+    meson_version: '>=0.56',
     subproject_dir: 'lib/subprojects',
     license: 'MIT',
-    version: '0.9.0'
+    version: '0.9.0',
+    default_options: ['buildtype=release']
 )
 
 project_soversion      = '0'
@@ -10,8 +11,8 @@ project_version_suffix = ''
 project_version        = meson.project_version()
 project_version_full   = project_version + project_version_suffix
 
-source_root = meson.source_root()
-build_root = meson.build_root()
+source_root = meson.current_source_dir()
+build_root = meson.current_build_dir()
 
 pkgc = import('pkgconfig')
 
@@ -20,25 +21,27 @@ pkgc = import('pkgconfig')
 #
 zlib_dep = dependency('zlib')
 crypto_dep = dependency('libcrypto')
-ssl_dep = dependency('libssl')
-libevent_dep = dependency('libevent')
+#ssl_dep = dependency('libssl')
+#libevent_dep = dependency('libevent')
+vibe_core_dep = dependency('vibe-core', version: ['>=1.11.0', '<1.12.0'], static: true)
 
 #
 # Compiler flags
 #
 flag_new_openssl_ldc = []
 flag_new_openssl_dmd = []
-if ssl_dep.version().version_compare('>=1.1')
-    flag_new_openssl_ldc = '-d-version=VibeUseOpenSSL11'
-    flag_new_openssl_dmd = '-version=VibeUseOpenSSL11'
-endif
+#if ssl_dep.version().version_compare('>=1.1')
+#    flag_new_openssl_ldc = '-d-version=VibeUseOpenSSL11'
+#    flag_new_openssl_dmd = '-version=VibeUseOpenSSL11'
+#endif
 
 if meson.get_compiler('d').get_id() == 'llvm'
-    add_global_arguments(['-d-version=VibeLibeventDriver',
-                          '-d-version=Have_openssl',
+    add_global_arguments([#'-d-version=VibeLibeventDriver',
+                          #'-d-version=Have_openssl',
                           '-d-version=Have_diet_ng',
                           '-d-version=Have_stdx_allocator',
-                          flag_new_openssl_ldc], language : 'd')
+                          #flag_new_openssl_ldc], language : 'd')
+                          ], language : 'd')
 endif
 if meson.get_compiler('d').get_id() == 'dmd'
     add_global_arguments(['-version=VibeLibeventDriver',
@@ -58,49 +61,49 @@ endif
 # we need to search for this dependency after setting global compiler flags, because
 # it may pull in a subproject after which setting global flags is not allowed anymore
 diet_dep = dependency('diet', fallback: ['diet', 'diet_dep'])
-allocator_dep = dependency('stdx-allocator', fallback: ['stdx-allocator', 'allocator_dep'])
+allocator_dep = dependency('stdx-allocator', fallback: ['stdx-allocator', 'allocator_dep'], static: true)
 
 # directory where the external dependencies are included from.
 # Meson will search for this dir in both build_root and source_root
 subproject_dir = 'lib/subprojects'
 
-# Try to find system OpenSSL bindings, if not found, download
-# a Git copy.
-openssl_src_dir = ''
-if run_command('[', '-d', '/usr/include/d/common/deimos/openssl/', ']').returncode() == 0
-    openssl_src_dir = '/usr/include/d/common'
-else
-    openssl_src_dir = subproject_dir + '/openssl'
-    if run_command('[', '-d', openssl_src_dir, ']').returncode() != 0
-        message('Fetching OpenSSL D bindings from Github...')
-        git_get_requests = run_command(['git', 'clone', 'https://github.com/s-ludwig/openssl.git', openssl_src_dir])
-        if git_get_requests.returncode() != 0
-            error('Unable to fetch OpenSSL bindings.\n' + git_get_requests.stderr())
-        endif
-    endif
+## Try to find system OpenSSL bindings, if not found, download
+## a Git copy.
+#openssl_src_dir = ''
+#if run_command('[', '-d', '/usr/include/d/common/deimos/openssl/', ']').returncode() == 0
+#    openssl_src_dir = '/usr/include/d/common'
+#else
+#    openssl_src_dir = subproject_dir + '/openssl'
+#    if run_command('[', '-d', openssl_src_dir, ']').returncode() != 0
+#        message('Fetching OpenSSL D bindings from Github...')
+#        git_get_requests = run_command(['git', 'clone', 'https://github.com/s-ludwig/openssl.git', openssl_src_dir])
+#        if git_get_requests.returncode() != 0
+#            error('Unable to fetch OpenSSL bindings.\n' + git_get_requests.stderr())
+#        endif
+#    endif
+#
+#    message('Using non-system OpenSSL D bindings.')
+#endif
+#openssl_inc = include_directories(openssl_src_dir)
 
-    message('Using non-system OpenSSL D bindings.')
-endif
-openssl_inc = include_directories(openssl_src_dir)
-
-# Try to find system LibEvent bindings, if not found, download
-# a Git copy.
-libevent_src_dir = ''
-if run_command('[', '-d', '/usr/include/d/common/deimos/event2/', ']').returncode() == 0
-    libevent_src_dir = '/usr/include/d/common'
-else
-    libevent_src_dir = subproject_dir + '/libevent'
-    if run_command('[', '-d', libevent_src_dir, ']').returncode() != 0
-        message('Fetching LibEvent bindings from Github...')
-        git_get_requests = run_command(['git', 'clone', 'https://github.com/s-ludwig/libevent.git', libevent_src_dir])
-        if git_get_requests.returncode() != 0
-            error('Unable to fetch LibEvent bindings.\n' + git_get_requests.stderr())
-        endif
-    endif
-
-    message('Using non-system LibEvent D bindings.')
-endif
-libevent_inc = include_directories(libevent_src_dir)
+## Try to find system LibEvent bindings, if not found, download
+## a Git copy.
+#libevent_src_dir = ''
+#if run_command('[', '-d', '/usr/include/d/common/deimos/event2/', ']').returncode() == 0
+#    libevent_src_dir = '/usr/include/d/common'
+#else
+#    libevent_src_dir = subproject_dir + '/libevent'
+#    if run_command('[', '-d', libevent_src_dir, ']').returncode() != 0
+#        message('Fetching LibEvent bindings from Github...')
+#        git_get_requests = run_command(['git', 'clone', 'https://github.com/s-ludwig/libevent.git', libevent_src_dir])
+#        if git_get_requests.returncode() != 0
+#            error('Unable to fetch LibEvent bindings.\n' + git_get_requests.stderr())
+#        endif
+#    endif
+#
+#    message('Using non-system LibEvent D bindings.')
+#endif
+#libevent_inc = include_directories(libevent_src_dir)
 
 #
 # Modules
@@ -113,7 +116,7 @@ subdir('utils/')
 subdir('data/')
 
 # Core
-subdir('core/')
+#subdir('core/')
 
 # Crypto
 subdir('crypto/')
@@ -134,13 +137,13 @@ subdir('tls/')
 subdir('http/')
 
 # Mail
-subdir('mail/')
+#subdir('mail/')
 
 # MongoDB
-subdir('mongodb/')
+#subdir('mongodb/')
 
 # Redis
-subdir('redis/')
+#subdir('redis/')
 
 # Web
-subdir('web/')
+#subdir('web/')

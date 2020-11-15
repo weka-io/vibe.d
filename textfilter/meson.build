@@ -20,13 +20,13 @@ install_subdir('vibe/', install_dir: 'include/d/vibe/')
 # Text filtering routines
 vibe_textfilter_lib = library('vibe-textfilter',
         [vibe_textfilter_src],
-        dependencies: [vibe_core_dep],
+        dependencies: [vibe_core_dep, vibe_utils_dep],
         install: true,
+        pic: true,
         version: project_version,
         soversion: project_soversion
 )
-pkgc.generate(name: 'vibe-textfilter',
-              libraries: [vibe_textfilter_lib],
+pkgc.generate(vibe_textfilter_lib,
               requires: ['vibe-core'],
               subdirs: 'd/vibe',
               version: project_version,
@@ -44,8 +44,8 @@ vibe_textfilter_dep = declare_dependency(
 #
 vibe_test_textfilter_exe = executable('vibe-test_textfilter',
     [vibe_textfilter_src],
-    dependencies: [vibe_core_dep],
-    d_args: meson.get_compiler('d').unittest_args(),
-    link_args: '-main'
+    dependencies: [vibe_core_dep, vibe_utils_dep],
+    d_unittest: true,
+    link_args: '--main'
 )
 test('vibe-test_textfilter', vibe_test_textfilter_exe)

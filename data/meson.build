@@ -21,13 +21,13 @@ install_subdir('vibe/', install_dir: 'include/d/vibe/')
 vibe_data_lib = library('vibe-data',
         [vibe_data_src],
         install: true,
+        pic: true,
         dependencies: [vibe_utils_dep],
         version: project_version,
         soversion: project_soversion
 )
 
-pkgc.generate(name: 'vibe-data',
-              libraries: [vibe_data_lib],
+pkgc.generate(vibe_data_lib,
               subdirs: 'd/vibe',
               version: project_version,
               requires: ['vibe-utils'],
@@ -47,7 +47,7 @@ vibe_test_data_exe = executable('vibe-test_data',
     [vibe_data_src],
     include_directories: [vibe_utils_src_dir],
     dependencies: [vibe_utils_dep],
-    d_args: meson.get_compiler('d').unittest_args(),
-    link_args: '-main'
+    d_unittest: true,
+    link_args: '--main'
 )
 test('vibe-test_data', vibe_test_data_exe)

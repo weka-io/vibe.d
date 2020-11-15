@@ -23,14 +23,17 @@ install_subdir('vibe/', install_dir: 'include/d/vibe/')
 # Internet standard functionality
 vibe_inet_lib = library('vibe-inet',
         [vibe_inet_src],
-        dependencies: [vibe_stream_dep,
-                       vibe_textfilter_dep],
+        dependencies: [vibe_utils_dep,
+                       vibe_data_dep,
+                       vibe_stream_dep,
+                       vibe_textfilter_dep,
+                      ],
         install: true,
+        pic: true,
         version: project_version,
         soversion: project_soversion
 )
-pkgc.generate(name: 'vibe-inet',
-              libraries: [vibe_inet_lib],
+pkgc.generate(vibe_inet_lib,
               subdirs: 'd/vibe',
               requires: ['vibe-stream', 'vibe-textfilter'],
               version: project_version,
@@ -49,9 +52,12 @@ vibe_inet_dep = declare_dependency(
 #
 vibe_test_inet_exe = executable('vibe-test_inet',
     [vibe_inet_src],
-    dependencies: [vibe_stream_dep,
-                   vibe_textfilter_dep],
-    d_args: meson.get_compiler('d').unittest_args(),
-    link_args: '-main'
+    dependencies: [vibe_utils_dep,
+                   vibe_data_dep,
+                   vibe_stream_dep,
+                   vibe_textfilter_dep,
+                  ],
+    d_unittest: true,
+    link_args: '--main'
 )
 test('vibe-test_inet', vibe_test_inet_exe)
